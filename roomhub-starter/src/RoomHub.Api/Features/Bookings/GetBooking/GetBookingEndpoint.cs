@@ -1,14 +1,21 @@
+using RoomHub.Api.Common;
+
 namespace RoomHub.Api.Features.Bookings.GetBooking;
 
 public static class GetBookingEndpoint
 {
     public static IEndpointRouteBuilder MapGetBooking(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/bookings/{id:guid}", (Guid id, GetBookingHandler handler) =>
+        app.MapGet("/api/bookings/{id:guid}", async (
+                Guid id,
+                IQueryHandler<GetBookingQuery, GetBookingResponse> handler,
+                CancellationToken cancellationToken) =>
             {
-                var b = handler.Handle(new GetBookingQuery(id));
-                return Results.Ok(new GetBookingResponse(
-                    b.Id, b.RoomId, b.BookedBy, b.StartUtc, b.EndUtc, b.Attendees, b.Status.ToString()));
+                var result = await handler.HandleAsync(new GetBookingQuery(id), cancellationToken);
+
+                return result.IsSuccess
+                    ? Results.Ok(result.Value)
+                    : result.Error.ToProblem();
             })
             .WithTags("Bookings");
 
