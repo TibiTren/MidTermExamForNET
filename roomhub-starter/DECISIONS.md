@@ -7,12 +7,12 @@ An unanswered question gives 0 points.
 ## 1. A rule you moved
 Pick one business rule (R1–R8). In which file did it live in the starter and in which file does it live now? Why there?
 
-_(your answer here)_
+R7 started in the Services/BookingService.cs and now lives in Domain/Booking.cs because the rule is about booking themselves 
 
 ## 2. Result instead of an exception
 Why is `Result` a better choice than an exception for "the room is occupied"? What happens in your code when an `Error` is returned?
 
-_(your answer here)_
+The occupied room is a bussiness outcome not a crash.An exception hides the failure path, with Reslt the method signature shows the failure is possible,, the caller has to handle it, and it costs less than throwing.
 
 ## 3. Who knows about EF Core?
 Which classes in your project know about EF Core and which do not? What do you gain and what do you pay with Repository + Unit of Work?
