@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using RoomHub.Api.Common;
 using RoomHub.Api.Domain;
 using RoomHub.Api.Features.Bookings.CancelBooking;
@@ -6,7 +8,7 @@ using RoomHub.Api.Features.Bookings.CreateBooking;
 using RoomHub.Api.Features.Bookings.GetBooking;
 using RoomHub.Api.Features.Rooms.CreateRoom;
 using RoomHub.Api.Features.Rooms.GetRoom;
-using RoomHub.Api.Infrastructure;
+using RoomHub.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,9 +22,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // "Now" comes from TimeProvider (R5, R11).
 builder.Services.AddSingleton(TimeProvider.System);
 
-// Storage (still in memory; EF Core at Level C).
-builder.Services.AddSingleton<IRoomRepository, InMemoryRoomRepository>();
-builder.Services.AddSingleton<IBookingRepository, InMemoryBookingRepository>();
+// Persistence: EF Core + SQLite. A relative database path is resolved against the
+// project folder, so the same file is reused after every restart.
+var sqlite = new SqliteConnectionStringBuilder(
+    builder.Configuration.GetConnectionString("RoomHub") ?? "Data Source=roomhub.db");
+if (!Path.IsPathRooted(sqlite.DataSource))
+    sqlite.DataSource = Path.Combine(builder.Environment.ContentRootPath, sqlite.DataSource);
+
+builder.Services.AddDbContext<RoomHubDbContext>(options => options.UseSqlite(sqlite.ConnectionString));
+builder.Services.AddScoped<IRoomRepository, EfRoomRepository>();
+builder.Services.AddScoped<IBookingRepository, EfBookingRepository>();
+builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
 // One handler per feature slice.
 builder.Services.AddScoped<ICommandHandler<CreateRoomCommand, CreateRoomResponse>, CreateRoomHandler>();
@@ -32,6 +42,12 @@ builder.Services.AddScoped<IQueryHandler<GetBookingQuery, GetBookingResponse>, G
 builder.Services.AddScoped<ICommandHandler<CancelBookingCommand>, CancelBookingHandler>();
 
 var app = builder.Build();
+
+// Create the database and tables on first start; existing data is kept.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<RoomHubDbContext>().Database.EnsureCreated();
+}
 
 app.UseExceptionHandler();
 
