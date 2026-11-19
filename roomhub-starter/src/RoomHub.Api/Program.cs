@@ -49,7 +49,13 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<RoomHubDbContext>().Database.EnsureCreated();
 }
 
-app.UseExceptionHandler();
+// Malformed JSON / unreadable body -> 400 ProblemDetails (not 500); anything else unexpected -> 500.
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    StatusCodeSelector = ex => ex is BadHttpRequestException bad
+        ? bad.StatusCode
+        : StatusCodes.Status500InternalServerError
+});
 
 app.MapGet("/", () => "RoomHub API is running.");
 
